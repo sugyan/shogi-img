@@ -1,14 +1,18 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+mod generator;
+
+pub use crate::generator::Generator;
+
+#[derive(Default)]
+pub enum Board {
+    #[default]
+    Light,
+    Warm,
+    Resin,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[derive(Default)]
+pub enum Piece {
+    #[default]
+    Hitomoji,
+    HitomojiGothic,
 }
