@@ -1,5 +1,8 @@
 # shogi-img
 
+[![](https://img.shields.io/crates/v/shogi-img)](https://crates.io/crates/shogi-img)
+[![](https://img.shields.io/docsrs/shogi-img)](https://docs.rs/shogi-img)
+[![](https://img.shields.io/crates/l/shogi-img)](https://github.com/sugyan/shogi-img/blob/main/LICENSE)
 [![Rust](https://github.com/sugyan/shogi-img/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/sugyan/shogi-img/actions/workflows/rust.yml)
 
 `shogi-img` is a library for generating images that visualize the position in Shogi (Japanese chess).
