@@ -13,8 +13,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn process_board(filenames: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
-    let dir = Path::new("src/data/board");
-    create_dir_all(dir)?;
+    let outdir = Path::new("shogi-img/src/data/board");
+    create_dir_all(outdir)?;
     for filename in filenames {
         // load svg to resvg::Tree
         let tree = {
@@ -35,7 +35,7 @@ fn process_board(filenames: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
                 // and write to png file
                 DynamicImage::ImageRgba8(image)
                     .resize_exact(527, 572, FilterType::Lanczos3)
-                    .save(dir.join(format!("{}.png",
+                    .save(outdir.join(format!("{}.png",
                             filename
                                 .split('_')
                                 .next()
@@ -48,12 +48,12 @@ fn process_board(filenames: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn process_pieces(names: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
-    let dir = Path::new("src/data/pieces");
-    create_dir_all(dir)?;
+    let outdir = Path::new("shogi-img/src/data/pieces");
+    create_dir_all(outdir)?;
     let mut fontdb = usvg::fontdb::Database::new();
     fontdb.load_system_fonts();
     for name in names {
-        create_dir_all(dir.join(name))?;
+        create_dir_all(outdir.join(name))?;
         let tree = {
             let mut file = File::open(Path::new("assets").join(name).join("piece.svg"))?;
             let mut text = String::new();
@@ -78,7 +78,7 @@ fn process_pieces(names: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
                         image
                             .crop_imm(width * j / 8, height * i / 4, width / 8, height / 4)
                             .resize(53, 56, FilterType::Lanczos3)
-                            .save(dir.join(name).join(format!("{i}{j}.png")))?;
+                            .save(outdir.join(name).join(format!("{i}{j}.png")))?;
                     }
                 }
             }

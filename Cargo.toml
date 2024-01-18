@@ -1,4 +1,6 @@
 [workspace]
 members = [
+    "create-data",
     "shogi-img",
 ]
+resolver = "2"

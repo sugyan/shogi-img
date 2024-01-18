@@ -1,5 +1,5 @@
 [package]
-name = "shogi-img"
+name = "create-data"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,4 @@ edition = "2021"
 
 [dependencies]
 image = { version = "0.24.8", default-features = false, features = ["png"] }
-imageproc = { version = "0.23.0", default-features = false }
-rusttype = "0.9.3"
-shogi_core = "0.1.5"
+resvg = "0.37.0"
