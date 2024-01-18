@@ -6,7 +6,7 @@
 
 ## Example
 
-![](shogi-img/images/example.png)
+![](/shogi-img/images/example.png)
 
 ```rust
 use shogi_img::pos2img;
