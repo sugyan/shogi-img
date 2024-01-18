@@ -70,10 +70,10 @@ macro_rules! load_pieces {
 /// It loads resources such as images of the board and pieces at initialization.
 ///
 /// ```
-/// use shogi_img::{BoardStyle, Generator, PieceStyle};
+/// use shogi_img::{BoardStyle, Generator, PiecesStyle};
 /// use shogi_core::PartialPosition;
 ///
-/// let gen = Generator::new(BoardStyle::Light, PieceStyle::Hitomoji);
+/// let gen = Generator::new(BoardStyle::Light, PiecesStyle::Hitomoji);
 /// let img = gen.generate(&PartialPosition::default());
 /// assert!(img.width() > 0 && img.height() > 0);
 /// ```
