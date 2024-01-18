@@ -1,9 +1,11 @@
-use image::imageops::FilterType;
-use image::{DynamicImage, ImageBuffer};
+use image::codecs::png::PngEncoder;
+use image::imageops::{self, FilterType};
+use image::RgbaImage;
+use oxipng::{Options, StripChunks};
 use resvg::usvg::{TreeParsing, TreeTextToPath};
 use resvg::{tiny_skia, usvg, Tree};
 use std::fs::{create_dir_all, File};
-use std::io::Read;
+use std::io::{BufWriter, Cursor, Read, Write};
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,19 +30,25 @@ fn process_board(filenames: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(mut pixmap) = tiny_skia::Pixmap::new(size.width(), size.height()) {
             tree.render(Default::default(), &mut pixmap.as_mut());
             // convert to image::ImageBuffer
-            if let Some(image) =
-                ImageBuffer::from_raw(pixmap.width(), pixmap.height(), pixmap.take())
+            if let Some(image) = RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.take())
             {
                 // resize to 527:572 with Lanczos3 filter
                 // and write to png file
-                DynamicImage::ImageRgba8(image)
-                    .resize_exact(527, 572, FilterType::Lanczos3)
-                    .save(outdir.join(format!("{}.png",
-                            filename
-                                .split('_')
-                                .next()
-                                .expect("filename should have `_`")
-                        )))?;
+                let path = outdir.join(format!(
+                    "{}.png",
+                    filename
+                        .split('_')
+                        .next()
+                        .expect("filename should have `_`")
+                ));
+                let mut cursor = Cursor::new(Vec::new());
+                imageops::resize(&image, 527, 572, FilterType::Lanczos3)
+                    .write_with_encoder(PngEncoder::new(BufWriter::new(&mut cursor)))?;
+                let mut file = File::create(path)?;
+                file.write_all(&oxipng::optimize_from_memory(
+                    cursor.get_ref(),
+                    &oxipng_options(),
+                )?)?;
             }
         }
     }
@@ -66,11 +74,9 @@ fn process_pieces(names: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(mut pixmap) = tiny_skia::Pixmap::new(size.width(), size.height()) {
             tree.render(Default::default(), &mut pixmap.as_mut());
             // convert to image::ImageBuffer
-            if let Some(image) =
-                ImageBuffer::from_raw(pixmap.width(), pixmap.height(), pixmap.take())
+            if let Some(image) = RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.take())
             {
                 let (width, height) = image.dimensions();
-                let image = DynamicImage::ImageRgba8(image);
                 // crop to width/8:height/4 and
                 // resize to 53:56 with Lanczos3 filter
                 for i in 0..4 {
@@ -78,14 +84,37 @@ fn process_pieces(names: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
                         if (i % 2 == 0 && j == 0) || (i % 2 == 1 && j == 3) {
                             continue;
                         }
-                        image
-                            .crop_imm(width * j / 8, height * i / 4, width / 8, height / 4)
-                            .resize(53, 56, FilterType::Lanczos3)
-                            .save(outdir.join(name).join(format!("{i}{j}.png")))?;
+                        let mut cursor = Cursor::new(Vec::new());
+                        imageops::resize(
+                            &imageops::crop_imm(
+                                &image,
+                                width * j / 8,
+                                height * i / 4,
+                                width / 8,
+                                height / 4,
+                            )
+                            .to_image(),
+                            53,
+                            56,
+                            FilterType::Lanczos3,
+                        )
+                        .write_with_encoder(PngEncoder::new(BufWriter::new(&mut cursor)))?;
+                        let mut file = File::create(outdir.join(name).join(format!("{i}{j}.png")))?;
+                        file.write_all(&oxipng::optimize_from_memory(
+                            cursor.get_ref(),
+                            &oxipng_options(),
+                        )?)?;
                     }
                 }
             }
         }
     }
     Ok(())
+}
+
+fn oxipng_options() -> Options {
+    let mut opt = Options::from_preset(4);
+    opt.strip = StripChunks::Safe;
+    opt.optimize_alpha = true;
+    opt
 }
