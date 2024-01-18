@@ -1,9 +1,14 @@
 [package]
 name = "shogi-img"
 version = "0.1.0"
+authors = ["sugyan <sugi1982+github@gmail.com>"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "library for generating images that visualize the position in Shogi (Japanese chess)"
+documentation = "https://docs.rs/shogi-img"
+readme = "../README.md"
+repository = "https://github.com/sugyan/shogi-img"
+license = "MIT"
+keywords = ["shogi"]
 
 [dependencies]
 image = { version = "0.24.8", default-features = false, features = ["png"] }
