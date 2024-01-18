@@ -75,6 +75,9 @@ fn process_pieces(names: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
                 // resize to 53:56 with Lanczos3 filter
                 for i in 0..4 {
                     for j in 0..8 {
+                        if (i % 2 == 0 && j == 0) || (i % 2 == 1 && j == 3) {
+                            continue;
+                        }
                         image
                             .crop_imm(width * j / 8, height * i / 4, width / 8, height / 4)
                             .resize(53, 56, FilterType::Lanczos3)
