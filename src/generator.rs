@@ -1,4 +1,4 @@
-use crate::{Board, Piece};
+use crate::{BoardStyle, PiecesStyle};
 use image::{imageops, io};
 use image::{ImageFormat, Rgba, RgbaImage};
 use imageproc::drawing;
@@ -65,6 +65,18 @@ macro_rules! load_pieces {
     };
 }
 
+/// Image generator.
+///
+/// It loads resources such as images of the board and pieces at initialization.
+///
+/// ```
+/// use shogi_img::{BoardStyle, Generator, PieceStyle};
+/// use shogi_core::PartialPosition;
+///
+/// let gen = Generator::new(BoardStyle::Light, PieceStyle::Hitomoji);
+/// let img = gen.generate(&PartialPosition::default());
+/// assert!(img.width() > 0 && img.height() > 0);
+/// ```
 pub struct Generator {
     board: RgbaImage,
     pieces: [[RgbaImage; PieceKind::NUM]; Color::NUM],
@@ -72,19 +84,20 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new(board: Board, piece: Piece) -> Self {
-        let board = match board {
-            Board::Light => io::Reader::with_format(
+    /// Creates a new `Generator` with the specified styles.
+    pub fn new(board_style: BoardStyle, piece_style: PiecesStyle) -> Self {
+        let board = match board_style {
+            BoardStyle::Light => io::Reader::with_format(
                 Cursor::new(include_bytes!("./data/board/light.png")),
                 ImageFormat::Png,
             )
             .decode(),
-            Board::Warm => io::Reader::with_format(
+            BoardStyle::Warm => io::Reader::with_format(
                 Cursor::new(include_bytes!("./data/board/warm.png")),
                 ImageFormat::Png,
             )
             .decode(),
-            Board::Resin => io::Reader::with_format(
+            BoardStyle::Resin => io::Reader::with_format(
                 Cursor::new(include_bytes!("./data/board/resin.png")),
                 ImageFormat::Png,
             )
@@ -92,9 +105,9 @@ impl Generator {
         }
         .expect("decoding image should be success")
         .to_rgba8();
-        let pieces = match piece {
-            Piece::Hitomoji => load_pieces!("hitomoji"),
-            Piece::HitomojiGothic => load_pieces!("hitomoji_gothic"),
+        let pieces = match piece_style {
+            PiecesStyle::Hitomoji => load_pieces!("hitomoji"),
+            PiecesStyle::HitomojiGothic => load_pieces!("hitomoji_gothic"),
         };
         let font = Font::try_from_bytes(include_bytes!("./data/fonts/MonaspaceNeon-Regular.otf"))
             .expect("font should be loaded");
@@ -104,6 +117,7 @@ impl Generator {
             font,
         }
     }
+    /// Generates an image from the specified position.
     pub fn generate(&self, position: &PartialPosition) -> RgbaImage {
         let mut image = RgbaImage::new(self.board.width() + HAND_WIDTH * 2, self.board.height());
         imageops::overlay(
@@ -181,6 +195,6 @@ impl Generator {
 
 impl Default for Generator {
     fn default() -> Self {
-        Self::new(Board::default(), Piece::default())
+        Self::new(BoardStyle::default(), PiecesStyle::default())
     }
 }
