@@ -1,9 +1,9 @@
-use crate::{BoardStyle, PiecesStyle};
+use crate::{BoardStyle, HighlightSquare, PiecesStyle};
 use image::{imageops, io};
 use image::{ImageFormat, Rgba, RgbaImage};
 use imageproc::drawing;
 use rusttype::{Font, Scale};
-use shogi_core::{Color, Hand, PartialPosition, PieceKind, Square};
+use shogi_core::{Color, Hand, Move, PartialPosition, Piece, PieceKind, Position, Square};
 use std::io::Cursor;
 
 const HAND_WIDTH: u32 = 200;
@@ -65,6 +65,36 @@ macro_rules! load_pieces {
     };
 }
 
+pub trait AsPosition {
+    fn hand_of_a_player(&self, color: Color) -> Hand;
+    fn piece_at(&self, square: Square) -> Option<Piece>;
+    fn last_move(&self) -> Option<Move>;
+}
+
+impl AsPosition for Position {
+    fn hand_of_a_player(&self, color: Color) -> Hand {
+        self.hand_of_a_player(color)
+    }
+    fn piece_at(&self, square: Square) -> Option<Piece> {
+        self.piece_at(square)
+    }
+    fn last_move(&self) -> Option<Move> {
+        self.last_move()
+    }
+}
+
+impl AsPosition for PartialPosition {
+    fn hand_of_a_player(&self, color: Color) -> Hand {
+        self.hand_of_a_player(color)
+    }
+    fn piece_at(&self, square: Square) -> Option<Piece> {
+        self.piece_at(square)
+    }
+    fn last_move(&self) -> Option<Move> {
+        self.last_move()
+    }
+}
+
 /// Image generator.
 ///
 /// It loads resources such as images of the board and pieces at initialization.
@@ -80,12 +110,17 @@ macro_rules! load_pieces {
 pub struct Generator {
     board: RgbaImage,
     pieces: [[RgbaImage; PieceKind::NUM]; Color::NUM],
+    highlight: Option<RgbaImage>,
     font: Font<'static>,
 }
 
 impl Generator {
     /// Creates a new `Generator` with the specified styles.
-    pub fn new(board_style: BoardStyle, piece_style: PiecesStyle) -> Self {
+    pub fn new(
+        board_style: BoardStyle,
+        pieces_style: PiecesStyle,
+        highlight_square: HighlightSquare,
+    ) -> Self {
         let board = match board_style {
             BoardStyle::Light => io::Reader::with_format(
                 Cursor::new(include_bytes!("./data/board/light.png")),
@@ -105,20 +140,32 @@ impl Generator {
         }
         .expect("decoding image should be success")
         .to_rgba8();
-        let pieces = match piece_style {
+        let pieces = match pieces_style {
             PiecesStyle::Hitomoji => load_pieces!("hitomoji"),
             PiecesStyle::HitomojiGothic => load_pieces!("hitomoji_gothic"),
         };
         let font = Font::try_from_bytes(include_bytes!("./data/fonts/MonaspaceNeon-Regular.otf"))
             .expect("font should be loaded");
+        let highlight = match highlight_square {
+            HighlightSquare::LastMoveTo => Some(RgbaImage::from_pixel(
+                55,
+                60,
+                Rgba::from([255, 64, 64, 127]),
+            )),
+            _ => None,
+        };
         Self {
             board,
             pieces,
             font,
+            highlight,
         }
     }
     /// Generates an image from the specified position.
-    pub fn generate(&self, position: &PartialPosition) -> RgbaImage {
+    pub fn generate<T>(&self, position: &T) -> RgbaImage
+    where
+        T: AsPosition,
+    {
         let mut image = RgbaImage::new(self.board.width() + HAND_WIDTH * 2, self.board.height());
         imageops::overlay(
             &mut image,
@@ -140,15 +187,29 @@ impl Generator {
         );
         image
     }
-    fn generate_board(&self, pos: &PartialPosition) -> RgbaImage {
+    fn generate_board<T>(&self, pos: &T) -> RgbaImage
+    where
+        T: AsPosition,
+    {
+        let last_moved = pos.last_move().map(|m| m.to());
         let mut board = self.board.clone();
         for sq in Square::all() {
             if let Some(piece) = pos.piece_at(sq) {
+                if Some(sq) == last_moved {
+                    if let Some(img) = &self.highlight {
+                        imageops::overlay(
+                            &mut board,
+                            img,
+                            8 + 57 * (9 - i64::from(sq.file())),
+                            8 + 62 * (i64::from(sq.rank()) - 1),
+                        );
+                    }
+                }
                 imageops::overlay(
                     &mut board,
                     &self.pieces[piece.color().array_index()][piece.piece_kind().array_index()],
-                    9 + (9 - sq.file() as i64) * 57,
-                    10 + 62 * (sq.rank() as i64 - 1),
+                    9 + 57 * (9 - i64::from(sq.file())),
+                    10 + 62 * (i64::from(sq.rank()) - 1),
                 );
             }
         }
@@ -174,7 +235,7 @@ impl Generator {
                 let piece = &self.pieces[Color::Black.array_index()][pk.array_index()];
                 let x = 20 + (index % 2) * (piece.width() + 30);
                 let y = 20 + (index / 2) * (piece.height() + 10);
-                imageops::overlay(&mut ret, piece, x as i64, y as i64);
+                imageops::overlay(&mut ret, piece, x.into(), y.into());
                 if count > 1 {
                     drawing::draw_text_mut(
                         &mut ret,
@@ -195,6 +256,10 @@ impl Generator {
 
 impl Default for Generator {
     fn default() -> Self {
-        Self::new(BoardStyle::default(), PiecesStyle::default())
+        Self::new(
+            BoardStyle::default(),
+            PiecesStyle::default(),
+            HighlightSquare::default(),
+        )
     }
 }
