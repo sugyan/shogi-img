@@ -27,6 +27,14 @@ pub enum PiecesStyle {
     HitomojiGothic,
 }
 
+/// Values to specify the style of the coordinates.
+#[derive(Default)]
+pub enum CoordinateStyle {
+    #[default]
+    None,
+    DrawCoordinates,
+}
+
 /// Hightlight mode for last moved pieces.
 #[derive(Default)]
 pub enum HighlightSquare {

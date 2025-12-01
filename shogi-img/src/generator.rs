@@ -1,4 +1,4 @@
-use crate::{BoardStyle, HighlightSquare, PiecesStyle};
+use crate::{BoardStyle, CoordinateStyle, HighlightSquare, PiecesStyle};
 use image::{imageops, io};
 use image::{ImageFormat, Rgba, RgbaImage};
 use imageproc::drawing;
@@ -8,6 +8,9 @@ use std::io::Cursor;
 
 const HAND_WIDTH: u32 = 200;
 const HAND_HEIGHT: u32 = 300;
+
+const RANK_TO_KANJI: [&'static str; 10] =
+    ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
 
 macro_rules! load_image {
     ($name:expr, $filename:expr) => {
@@ -100,12 +103,13 @@ impl AsPosition for PartialPosition {
 /// It loads resources such as images of the board and pieces at initialization.
 ///
 /// ```
-/// use shogi_img::{BoardStyle, Generator, HighlightSquare, PiecesStyle};
+/// use shogi_img::{BoardStyle, Generator, HighlightSquare, PiecesStyle, CoordinateStyle};
 /// use shogi_core::PartialPosition;
 ///
 /// let gen = Generator::new(
 ///     BoardStyle::Warm,
 ///     PiecesStyle::HitomojiGothic,
+///     CoordinateStyle::DrawCoordinates,
 ///     HighlightSquare::LastMoveTo,
 /// );
 /// let img = gen.generate(&PartialPosition::default());
@@ -114,6 +118,7 @@ impl AsPosition for PartialPosition {
 pub struct Generator {
     board: RgbaImage,
     pieces: [[RgbaImage; PieceKind::NUM]; Color::NUM],
+    draw_coordinates: bool,
     highlight: Option<RgbaImage>,
     font: Font<'static>,
 }
@@ -123,6 +128,7 @@ impl Generator {
     pub fn new(
         board_style: BoardStyle,
         pieces_style: PiecesStyle,
+        coordinate_style: CoordinateStyle,
         highlight_square: HighlightSquare,
     ) -> Self {
         let board = match board_style {
@@ -148,8 +154,14 @@ impl Generator {
             PiecesStyle::Hitomoji => load_pieces!("hitomoji"),
             PiecesStyle::HitomojiGothic => load_pieces!("hitomoji_gothic"),
         };
-        let font = Font::try_from_bytes(include_bytes!("./data/fonts/MonaspaceNeon-Regular.otf"))
-            .expect("font should be loaded");
+        let draw_coordinates = match coordinate_style {
+            CoordinateStyle::DrawCoordinates => true,
+            CoordinateStyle::None => false,
+        };
+        let font = Font::try_from_bytes(include_bytes!(
+            "./data/fonts/MoralerspaceNeon-Regular.subset.ttf"
+        ))
+        .expect("font should be loaded");
         let highlight = match highlight_square {
             HighlightSquare::LastMoveTo => Some(RgbaImage::from_pixel(
                 55,
@@ -161,6 +173,7 @@ impl Generator {
         Self {
             board,
             pieces,
+            draw_coordinates,
             font,
             highlight,
         }
@@ -217,6 +230,33 @@ impl Generator {
                 );
             }
         }
+
+        if self.draw_coordinates {
+            for file in 1..=9 {
+                drawing::draw_text_mut(
+                    &mut board,
+                    Rgba::from([0, 0, 0, u8::MAX]),
+                    9 + (57 / 3) + 57 * (9 - file),
+                    0,
+                    Scale::uniform(18.0),
+                    &self.font,
+                    &file.to_string(),
+                );
+            }
+
+            for rank in 1..=9 {
+                drawing::draw_text_mut(
+                    &mut board,
+                    Rgba::from([0, 0, 0, u8::MAX]),
+                    (self.board.width() - 15) as i32,
+                    9 + (62 / 3) + 62 * (rank - 1),
+                    Scale::uniform(18.0),
+                    &self.font,
+                    RANK_TO_KANJI[rank as usize],
+                );
+            }
+        }
+
         board
     }
     fn generate_hand(&self, hand: &Hand) -> RgbaImage {
@@ -263,6 +303,7 @@ impl Default for Generator {
         Self::new(
             BoardStyle::default(),
             PiecesStyle::default(),
+            CoordinateStyle::default(),
             HighlightSquare::default(),
         )
     }

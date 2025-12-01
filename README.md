@@ -30,4 +30,4 @@ This repository includes images sourced from [Shogi Images](https://sunfish-shog
 
 ## Font resources
 
-This repository includes the [MonaSpace](https://github.com/githubnext/monaspace) font by GitHub, licensed under the [SIL Open Font License 1.1](https://github.com/githubnext/monaspace?tab=OFL-1.1-1-ov-file#readme).
+This repository includes the [Moralerspace](https://github.com/yuru7/moralerspace) font by yuru7, licensed under the [SIL Open Font License 1.1](https://github.com/yuru7/moralerspace/blob/main/LICENSE).
