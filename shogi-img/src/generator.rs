@@ -1,6 +1,6 @@
 use crate::{BoardStyle, CoordinateStyle, HighlightSquare, PiecesStyle};
-use image::{imageops, io};
 use image::{ImageFormat, Rgba, RgbaImage};
+use image::{imageops, io};
 use imageproc::drawing;
 use rusttype::{Font, Scale};
 use shogi_core::{Color, Hand, Move, PartialPosition, Piece, PieceKind, Position, Square};
@@ -9,8 +9,7 @@ use std::io::Cursor;
 const HAND_WIDTH: u32 = 200;
 const HAND_HEIGHT: u32 = 300;
 
-const RANK_TO_KANJI: [&'static str; 10] =
-    ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+const RANK_TO_KANJI: [&str; 10] = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
 
 macro_rules! load_image {
     ($name:expr, $filename:expr) => {
@@ -106,13 +105,13 @@ impl AsPosition for PartialPosition {
 /// use shogi_img::{BoardStyle, Generator, HighlightSquare, PiecesStyle, CoordinateStyle};
 /// use shogi_core::PartialPosition;
 ///
-/// let gen = Generator::new(
+/// let generator = Generator::new(
 ///     BoardStyle::Warm,
 ///     PiecesStyle::HitomojiGothic,
 ///     CoordinateStyle::DrawCoordinates,
 ///     HighlightSquare::LastMoveTo,
 /// );
-/// let img = gen.generate(&PartialPosition::default());
+/// let img = generator.generate(&PartialPosition::default());
 /// assert!(img.width() > 0 && img.height() > 0);
 /// ```
 pub struct Generator {
@@ -212,15 +211,15 @@ impl Generator {
         let mut board = self.board.clone();
         for sq in Square::all() {
             if let Some(piece) = pos.piece_at(sq) {
-                if Some(sq) == last_moved {
-                    if let Some(img) = &self.highlight {
-                        imageops::overlay(
-                            &mut board,
-                            img,
-                            8 + 57 * (9 - i64::from(sq.file())),
-                            8 + 62 * (i64::from(sq.rank()) - 1),
-                        );
-                    }
+                if Some(sq) == last_moved
+                    && let Some(img) = &self.highlight
+                {
+                    imageops::overlay(
+                        &mut board,
+                        img,
+                        8 + 57 * (9 - i64::from(sq.file())),
+                        8 + 62 * (i64::from(sq.rank()) - 1),
+                    );
                 }
                 imageops::overlay(
                     &mut board,
