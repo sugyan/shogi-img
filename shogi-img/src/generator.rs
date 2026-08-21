@@ -1,8 +1,8 @@
 use crate::{BoardStyle, CoordinateStyle, HighlightSquare, PiecesStyle};
+use ab_glyph::{FontRef, PxScale};
 use image::{ImageFormat, Rgba, RgbaImage};
-use image::{imageops, io};
+use image::{ImageReader, imageops};
 use imageproc::drawing;
-use rusttype::{Font, Scale};
 use shogi_core::{Color, Hand, Move, PartialPosition, Piece, PieceKind, Position, Square};
 use std::io::Cursor;
 
@@ -13,7 +13,7 @@ const RANK_TO_KANJI: [&str; 10] = ["", "一", "二", "三", "四", "五", "六",
 
 macro_rules! load_image {
     ($name:expr, $filename:expr) => {
-        io::Reader::with_format(
+        ImageReader::with_format(
             Cursor::new(include_bytes!(concat!(
                 "./data/pieces/",
                 $name,
@@ -119,7 +119,7 @@ pub struct Generator {
     pieces: [[RgbaImage; PieceKind::NUM]; Color::NUM],
     draw_coordinates: bool,
     highlight: Option<RgbaImage>,
-    font: Font<'static>,
+    font: FontRef<'static>,
 }
 
 impl Generator {
@@ -131,17 +131,17 @@ impl Generator {
         highlight_square: HighlightSquare,
     ) -> Self {
         let board = match board_style {
-            BoardStyle::Light => io::Reader::with_format(
+            BoardStyle::Light => ImageReader::with_format(
                 Cursor::new(include_bytes!("./data/board/light.png")),
                 ImageFormat::Png,
             )
             .decode(),
-            BoardStyle::Warm => io::Reader::with_format(
+            BoardStyle::Warm => ImageReader::with_format(
                 Cursor::new(include_bytes!("./data/board/warm.png")),
                 ImageFormat::Png,
             )
             .decode(),
-            BoardStyle::Resin => io::Reader::with_format(
+            BoardStyle::Resin => ImageReader::with_format(
                 Cursor::new(include_bytes!("./data/board/resin.png")),
                 ImageFormat::Png,
             )
@@ -157,7 +157,7 @@ impl Generator {
             CoordinateStyle::DrawCoordinates => true,
             CoordinateStyle::None => false,
         };
-        let font = Font::try_from_bytes(include_bytes!(
+        let font = FontRef::try_from_slice(include_bytes!(
             "./data/fonts/MoralerspaceNeon-Regular.subset.ttf"
         ))
         .expect("font should be loaded");
@@ -237,7 +237,7 @@ impl Generator {
                     Rgba::from([0, 0, 0, u8::MAX]),
                     9 + (57 / 3) + 57 * (9 - file),
                     0,
-                    Scale::uniform(18.0),
+                    PxScale::from(18.0),
                     &self.font,
                     &file.to_string(),
                 );
@@ -249,7 +249,7 @@ impl Generator {
                     Rgba::from([0, 0, 0, u8::MAX]),
                     (self.board.width() - 15) as i32,
                     9 + (62 / 3) + 62 * (rank - 1),
-                    Scale::uniform(18.0),
+                    PxScale::from(18.0),
                     &self.font,
                     RANK_TO_KANJI[rank as usize],
                 );
@@ -285,7 +285,7 @@ impl Generator {
                         Rgba::from([0, 0, 0, u8::MAX]),
                         (x + piece.width()) as i32,
                         (y + piece.height() - 24) as i32,
-                        Scale::uniform(24.0),
+                        PxScale::from(24.0),
                         &self.font,
                         &count.to_string(),
                     );
