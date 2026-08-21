@@ -1,8 +1,7 @@
 use crate::{BoardStyle, CoordinateStyle, HighlightSquare, PiecesStyle};
-use ab_glyph::{FontRef, PxScale};
+use ab_glyph::{Font, FontRef, GlyphId, PxScale, ScaleFont, point};
 use image::{ImageFormat, Rgba, RgbaImage};
 use image::{ImageReader, imageops};
-use imageproc::drawing;
 use shogi_core::{Color, Hand, Move, PartialPosition, Piece, PieceKind, Position, Square};
 use std::io::Cursor;
 
@@ -65,6 +64,66 @@ macro_rules! load_pieces {
             ],
         ]
     };
+}
+
+/// [`imageproc::drawing::draw_text_mut`] for the one pixel type and the one
+/// font type this crate draws with.
+///
+/// Written out rather than depended on: three labels are the whole use, and
+/// `imageproc` reaches them through `nalgebra`, which a caller linking this
+/// crate into a binary pays for in full.
+///
+/// The layout quirk is imageproc's and is kept deliberately — the kerning pair
+/// is added *after* the advance and only for a glyph that outlines — so that
+/// text that fitted before still fits. So is the blend: each channel mixed as
+/// `dst * (1 - coverage) + colour * coverage` with the alpha channel included,
+/// then **truncated** rather than rounded, which is what `Clamp<f32> for u8`
+/// does.
+///
+/// [`imageproc::drawing::draw_text_mut`]: https://docs.rs/imageproc/0.25/imageproc/drawing/fn.draw_text_mut.html
+fn draw_text_mut(
+    canvas: &mut RgbaImage,
+    color: Rgba<u8>,
+    x: i32,
+    y: i32,
+    scale: PxScale,
+    font: &FontRef<'static>,
+    text: &str,
+) {
+    let (width, height) = (canvas.width() as i32, canvas.height() as i32);
+    let scaled = font.as_scaled(scale);
+    let mut caret = 0.0;
+    let mut last: Option<GlyphId> = None;
+    for c in text.chars() {
+        let id = scaled.glyph_id(c);
+        let glyph = id.with_scale_and_position(scale, point(caret, scaled.ascent()));
+        caret += scaled.h_advance(id);
+        let Some(outline) = scaled.outline_glyph(glyph) else {
+            continue;
+        };
+        if let Some(previous) = last {
+            caret += scaled.kern(id, previous);
+        }
+        last = Some(id);
+        let bounds = outline.px_bounds();
+        outline.draw(|gx, gy, coverage| {
+            let px = gx as i32 + x + bounds.min.x.round() as i32;
+            let py = gy as i32 + y + bounds.min.y.round() as i32;
+            if !(0..width).contains(&px) || !(0..height).contains(&py) {
+                return;
+            }
+            let coverage = coverage.clamp(0.0, 1.0);
+            let pixel = canvas.get_pixel_mut(px as u32, py as u32);
+            for (channel, ink) in pixel.0.iter_mut().zip(color.0) {
+                let mixed = f32::from(*channel) * (1.0 - coverage) + f32::from(ink) * coverage;
+                *channel = if mixed < 255.0 {
+                    if mixed > 0.0 { mixed as u8 } else { 0 }
+                } else {
+                    u8::MAX
+                };
+            }
+        });
+    }
 }
 
 pub trait AsPosition {
@@ -232,7 +291,7 @@ impl Generator {
 
         if self.draw_coordinates {
             for file in 1..=9 {
-                drawing::draw_text_mut(
+                draw_text_mut(
                     &mut board,
                     Rgba::from([0, 0, 0, u8::MAX]),
                     9 + (57 / 3) + 57 * (9 - file),
@@ -244,7 +303,7 @@ impl Generator {
             }
 
             for rank in 1..=9 {
-                drawing::draw_text_mut(
+                draw_text_mut(
                     &mut board,
                     Rgba::from([0, 0, 0, u8::MAX]),
                     (self.board.width() - 15) as i32,
@@ -280,7 +339,7 @@ impl Generator {
                 let y = 20 + (index / 2) * (piece.height() + 10);
                 imageops::overlay(&mut ret, piece, x.into(), y.into());
                 if count > 1 {
-                    drawing::draw_text_mut(
+                    draw_text_mut(
                         &mut ret,
                         Rgba::from([0, 0, 0, u8::MAX]),
                         (x + piece.width()) as i32,
