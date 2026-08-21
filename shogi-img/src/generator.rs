@@ -1,8 +1,7 @@
 use crate::{BoardStyle, CoordinateStyle, HighlightSquare, PiecesStyle};
+use ab_glyph::{Font, FontRef, GlyphId, PxScale, ScaleFont, point};
 use image::{ImageFormat, Rgba, RgbaImage};
-use image::{imageops, io};
-use imageproc::drawing;
-use rusttype::{Font, Scale};
+use image::{ImageReader, imageops};
 use shogi_core::{Color, Hand, Move, PartialPosition, Piece, PieceKind, Position, Square};
 use std::io::Cursor;
 
@@ -13,7 +12,7 @@ const RANK_TO_KANJI: [&str; 10] = ["", "一", "二", "三", "四", "五", "六",
 
 macro_rules! load_image {
     ($name:expr, $filename:expr) => {
-        io::Reader::with_format(
+        ImageReader::with_format(
             Cursor::new(include_bytes!(concat!(
                 "./data/pieces/",
                 $name,
@@ -65,6 +64,66 @@ macro_rules! load_pieces {
             ],
         ]
     };
+}
+
+/// [`imageproc::drawing::draw_text_mut`] for the one pixel type and the one
+/// font type this crate draws with.
+///
+/// Written out rather than depended on: three labels are the whole use, and
+/// `imageproc` reaches them through `nalgebra`, which a caller linking this
+/// crate into a binary pays for in full.
+///
+/// The layout quirk is imageproc's and is kept deliberately — the kerning pair
+/// is added *after* the advance and only for a glyph that outlines — so that
+/// text that fitted before still fits. So is the blend: each channel mixed as
+/// `dst * (1 - coverage) + colour * coverage` with the alpha channel included,
+/// then **truncated** rather than rounded, which is what `Clamp<f32> for u8`
+/// does.
+///
+/// [`imageproc::drawing::draw_text_mut`]: https://docs.rs/imageproc/0.25/imageproc/drawing/fn.draw_text_mut.html
+fn draw_text_mut(
+    canvas: &mut RgbaImage,
+    color: Rgba<u8>,
+    x: i32,
+    y: i32,
+    scale: PxScale,
+    font: &FontRef<'static>,
+    text: &str,
+) {
+    let (width, height) = (canvas.width() as i32, canvas.height() as i32);
+    let scaled = font.as_scaled(scale);
+    let mut caret = 0.0;
+    let mut last: Option<GlyphId> = None;
+    for c in text.chars() {
+        let id = scaled.glyph_id(c);
+        let glyph = id.with_scale_and_position(scale, point(caret, scaled.ascent()));
+        caret += scaled.h_advance(id);
+        let Some(outline) = scaled.outline_glyph(glyph) else {
+            continue;
+        };
+        if let Some(previous) = last {
+            caret += scaled.kern(id, previous);
+        }
+        last = Some(id);
+        let bounds = outline.px_bounds();
+        outline.draw(|gx, gy, coverage| {
+            let px = gx as i32 + x + bounds.min.x.round() as i32;
+            let py = gy as i32 + y + bounds.min.y.round() as i32;
+            if !(0..width).contains(&px) || !(0..height).contains(&py) {
+                return;
+            }
+            let coverage = coverage.clamp(0.0, 1.0);
+            let pixel = canvas.get_pixel_mut(px as u32, py as u32);
+            for (channel, ink) in pixel.0.iter_mut().zip(color.0) {
+                let mixed = f32::from(*channel) * (1.0 - coverage) + f32::from(ink) * coverage;
+                *channel = if mixed < 255.0 {
+                    if mixed > 0.0 { mixed as u8 } else { 0 }
+                } else {
+                    u8::MAX
+                };
+            }
+        });
+    }
 }
 
 pub trait AsPosition {
@@ -119,7 +178,7 @@ pub struct Generator {
     pieces: [[RgbaImage; PieceKind::NUM]; Color::NUM],
     draw_coordinates: bool,
     highlight: Option<RgbaImage>,
-    font: Font<'static>,
+    font: FontRef<'static>,
 }
 
 impl Generator {
@@ -131,17 +190,17 @@ impl Generator {
         highlight_square: HighlightSquare,
     ) -> Self {
         let board = match board_style {
-            BoardStyle::Light => io::Reader::with_format(
+            BoardStyle::Light => ImageReader::with_format(
                 Cursor::new(include_bytes!("./data/board/light.png")),
                 ImageFormat::Png,
             )
             .decode(),
-            BoardStyle::Warm => io::Reader::with_format(
+            BoardStyle::Warm => ImageReader::with_format(
                 Cursor::new(include_bytes!("./data/board/warm.png")),
                 ImageFormat::Png,
             )
             .decode(),
-            BoardStyle::Resin => io::Reader::with_format(
+            BoardStyle::Resin => ImageReader::with_format(
                 Cursor::new(include_bytes!("./data/board/resin.png")),
                 ImageFormat::Png,
             )
@@ -157,7 +216,7 @@ impl Generator {
             CoordinateStyle::DrawCoordinates => true,
             CoordinateStyle::None => false,
         };
-        let font = Font::try_from_bytes(include_bytes!(
+        let font = FontRef::try_from_slice(include_bytes!(
             "./data/fonts/MoralerspaceNeon-Regular.subset.ttf"
         ))
         .expect("font should be loaded");
@@ -232,24 +291,24 @@ impl Generator {
 
         if self.draw_coordinates {
             for file in 1..=9 {
-                drawing::draw_text_mut(
+                draw_text_mut(
                     &mut board,
                     Rgba::from([0, 0, 0, u8::MAX]),
                     9 + (57 / 3) + 57 * (9 - file),
                     0,
-                    Scale::uniform(18.0),
+                    PxScale::from(18.0),
                     &self.font,
                     &file.to_string(),
                 );
             }
 
             for rank in 1..=9 {
-                drawing::draw_text_mut(
+                draw_text_mut(
                     &mut board,
                     Rgba::from([0, 0, 0, u8::MAX]),
                     (self.board.width() - 15) as i32,
                     9 + (62 / 3) + 62 * (rank - 1),
-                    Scale::uniform(18.0),
+                    PxScale::from(18.0),
                     &self.font,
                     RANK_TO_KANJI[rank as usize],
                 );
@@ -280,12 +339,12 @@ impl Generator {
                 let y = 20 + (index / 2) * (piece.height() + 10);
                 imageops::overlay(&mut ret, piece, x.into(), y.into());
                 if count > 1 {
-                    drawing::draw_text_mut(
+                    draw_text_mut(
                         &mut ret,
                         Rgba::from([0, 0, 0, u8::MAX]),
                         (x + piece.width()) as i32,
                         (y + piece.height() - 24) as i32,
-                        Scale::uniform(24.0),
+                        PxScale::from(24.0),
                         &self.font,
                         &count.to_string(),
                     );
