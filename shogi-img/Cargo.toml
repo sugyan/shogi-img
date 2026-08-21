@@ -13,5 +13,4 @@ keywords = ["shogi"]
 [dependencies]
 ab_glyph = "0.2.23"
 image = { version = "0.25.6", default-features = false, features = ["png"] }
-imageproc = { version = "0.25.0", default-features = false }
 shogi_core = "0.1.5"
