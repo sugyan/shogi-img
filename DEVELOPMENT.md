@@ -27,22 +27,44 @@ Boards: each `assets/board/*_458x500.svg` rendered with resvg, resized to
 style, rendered, cropped into an 8×4 grid, each cell resized to 53×56, then
 oxipng.
 
-**Check `git diff` afterwards. Rerunning it does not reproduce what is
-committed, and neither way it differs announces itself:**
+**Check `git diff` afterwards. One half of this reproduces and the other does
+not, and the half that does not says nothing about it.**
 
-- **The gothic pieces depend on the machine's fonts.**
-  `assets/hitomoji_gothic/piece.svg` is the only source with `<text>` left in
-  it. It asks for `BIZ UDPGothic` Bold and falls back to `sans-serif`, and
-  `create-data` resolves that with `fontdb.load_system_fonts()`. Without that
-  face installed, all 28 gothic pieces come out in whatever the fallback is —
-  measured on `01.png`, 990 of 2968 pixels, at full contrast. It is a different
-  typeface, not a rounding difference. `assets/hitomoji/piece.svg` has its text
-  already converted to paths and reproduces exactly.
-- **The boards move by rounding.** 7 of 301444 pixels at a delta of 1 on
-  `light.png`, from resvg and oxipng versions rather than from anything visible.
-  `Cargo.lock` is not committed, so those versions are whatever resolves today.
+### The boards reproduce, because `Cargo.lock` is committed
 
-So keep the files you meant to change and revert the rest.
+They did not always. `light.png` and `warm.png` — and only those two — moved
+whenever the toolchain moved: 7 and 2 pixels of 301444, at a delta of 1.
+Invisible, and enough to make every regeneration a diff.
+
+Only those two because **only those two embed a photograph.**
+`light_458x500.svg` and `warm_458x500.svg` are 415 KB and 342 KB and each holds
+one 458×500 PNG of woodgrain, placed at 439.215 × 479.792 — a fractional
+downscale, so it has to be resampled. The resampler is **tiny-skia**, which
+`create-data` never names: it arrives under `resvg` as `^0.11`, so before the
+lock was committed its patch version was whatever resolved that day.
+`resin_458x500.svg` is 29 KB of pure vector, rasterises identically every time,
+and never moved.
+
+So a `resvg` or `tiny-skia` bump will move `light` and `warm` again, by a pixel
+or two, and leave `resin` alone. That is expected, not a defect. Regenerate them
+in the same commit as the bump.
+
+Within one lock, output is byte-identical run to run — checked.
+
+### The gothic pieces do not reproduce, and depend on the machine's fonts
+
+`assets/hitomoji_gothic/piece.svg` is the only source with `<text>` left in it.
+It asks for `BIZ UDPGothic` Bold and falls back to `sans-serif`, and
+`create-data` resolves that with `fontdb.load_system_fonts()` — which the lock
+does not pin, because fonts are not dependencies. Without that face installed,
+all 28 gothic pieces come out in whatever the fallback is: measured on `01.png`,
+990 of 2968 pixels at full contrast. A different typeface, not a rounding
+difference, and nothing warns you.
+
+`assets/hitomoji/piece.svg` has its text already converted to paths and
+reproduces anywhere. Doing the same to the gothic sheet would close this; until
+then, regenerate the pieces only on a machine with `BIZ UDPGothic`, and revert
+them otherwise.
 
 ## The font subset
 
