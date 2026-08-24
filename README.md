@@ -31,3 +31,5 @@ This repository includes images sourced from [Shogi Images](https://sunfish-shog
 ## Font resources
 
 This repository includes the [Moralerspace](https://github.com/yuru7/moralerspace) font by yuru7, licensed under the [SIL Open Font License 1.1](https://github.com/yuru7/moralerspace/blob/main/LICENSE).
+
+Only a subset is compiled into the crate, at `shogi-img/src/data/fonts/MoralerspaceNeon-Regular.subset.ttf`, and the license text travels beside it as `OFL.txt`. The full face it was subset from is build-time input rather than part of the library, so it lives in `assets/fonts/` with the other sources the published package does not carry. [DEVELOPMENT.md](https://github.com/sugyan/shogi-img/blob/main/DEVELOPMENT.md) has how the subset and the board and piece images are regenerated.
