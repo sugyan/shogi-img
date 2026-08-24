@@ -66,21 +66,10 @@ macro_rules! load_pieces {
     };
 }
 
-/// [`imageproc::drawing::draw_text_mut`] for the one pixel type and the one
-/// font type this crate draws with.
-///
-/// Written out rather than depended on: three labels are the whole use, and
-/// `imageproc` reaches them through `nalgebra`, which a caller linking this
-/// crate into a binary pays for in full.
-///
-/// The layout quirk is imageproc's and is kept deliberately — the kerning pair
-/// is added *after* the advance and only for a glyph that outlines — so that
-/// text that fitted before still fits. So is the blend: each channel mixed as
-/// `dst * (1 - coverage) + colour * coverage` with the alpha channel included,
-/// then **truncated** rather than rounded, which is what `Clamp<f32> for u8`
-/// does.
-///
-/// [`imageproc::drawing::draw_text_mut`]: https://docs.rs/imageproc/0.25/imageproc/drawing/fn.draw_text_mut.html
+/// `imageproc::drawing::draw_text_mut`, ported for the one pixel and font type
+/// this crate uses. Two oddities are kept on purpose: the kerning pair lands
+/// after the advance, and channels truncate rather than round. "Fixing" either
+/// moves the text.
 fn draw_text_mut(
     canvas: &mut RgbaImage,
     color: Rgba<u8>,
