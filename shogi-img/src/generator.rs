@@ -238,36 +238,10 @@ impl Generator {
     where
         T: AsPosition,
     {
-        self.generate_with_highlights(position, &[])
-    }
-    /// Generates an image from the specified position, tinting the given squares.
-    ///
-    /// Tints are drawn over the pieces, so each alpha is how much of the piece
-    /// shows through.
-    ///
-    /// ```
-    /// use shogi_img::Generator;
-    /// use shogi_img::image::Rgba;
-    /// use shogi_core::{PartialPosition, Square};
-    ///
-    /// let img = Generator::default().generate_with_highlights(
-    ///     &PartialPosition::startpos(),
-    ///     &[(Square::SQ_5E, Rgba([64, 128, 255, 96]))],
-    /// );
-    /// assert!(img.width() > 0 && img.height() > 0);
-    /// ```
-    pub fn generate_with_highlights<T>(
-        &self,
-        position: &T,
-        highlights: &[(Square, Rgba<u8>)],
-    ) -> RgbaImage
-    where
-        T: AsPosition,
-    {
         let mut image = RgbaImage::new(self.board.width() + HAND_WIDTH * 2, self.board.height());
         imageops::overlay(
             &mut image,
-            &self.generate_board(position, highlights),
+            &self.generate_board(position),
             HAND_WIDTH.into(),
             0,
         );
@@ -285,7 +259,7 @@ impl Generator {
         );
         image
     }
-    fn generate_board<T>(&self, pos: &T, highlights: &[(Square, Rgba<u8>)]) -> RgbaImage
+    fn generate_board<T>(&self, pos: &T) -> RgbaImage
     where
         T: AsPosition,
     {
@@ -310,18 +284,6 @@ impl Generator {
                     10 + 62 * (i64::from(sq.rank()) - 1),
                 );
             }
-        }
-
-        // Over the pieces and filling the square, unlike the inset
-        // `HighlightSquare` above: under a piece only a pixel or two shows,
-        // which is less than one once the image is scaled down.
-        for (sq, color) in highlights {
-            imageops::overlay(
-                &mut board,
-                &RgbaImage::from_pixel(57, 62, *color),
-                8 + 57 * (9 - i64::from(sq.file())),
-                8 + 62 * (i64::from(sq.rank()) - 1),
-            );
         }
 
         if self.draw_coordinates {
